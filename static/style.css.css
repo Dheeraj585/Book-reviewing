@@ -1,0 +1,21 @@
+/* static/style.css */
+body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    background: #f4f4f4;
+}
+h1 {
+    color: #333;
+}
+input {
+    display: block;
+    margin: 10px 0;
+    padding: 5px;
+}
+button {
+    padding: 5px 10px;
+    cursor: pointer;
+}
+#books {
+    margin-top: 20px;
+}

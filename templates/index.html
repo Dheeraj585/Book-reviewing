@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+
+        h2 {
+            color: #34495e;
+        }
+
+        div {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 600px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        input {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #2980b9;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #1f6391;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            background-color: #ecf0f1;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        #single-book-details {
+            background-color: #ecf0f1;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        input::placeholder {
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <h1>Book Manager</h1>
+    
+    <!-- Add Book Form -->
+    <div id="add-book-form">
+        <h2>Add Book</h2>
+        <input id="add-title" placeholder="Title">
+        <input id="add-author" placeholder="Author">
+        <input id="add-genre" placeholder="Genre">
+        <input id="add-rating" placeholder="Rating" type="number" step="0.1" min="0" max="5">
+        <button onclick="addBook()">Add Book</button>
+    </div>
+
+    <!-- Update Book Form -->
+    <div id="update-book-form">
+        <h2>Update Book</h2>
+        <input id="update-title" placeholder="Book Title to Update">
+        <input id="update-author" placeholder="New Author">
+        <input id="update-genre" placeholder="New Genre">
+        <input id="update-rating" placeholder="New Rating" type="number" step="0.1" min="0" max="5">
+        <button onclick="updateBook()">Update Book</button>
+    </div>
+
+    <!-- Delete Book Form -->
+    <div id="delete-book-form">
+        <h2>Delete Book</h2>
+        <input id="delete-title" placeholder="Book Title to Delete">
+        <button onclick="deleteBook()">Delete Book</button>
+    </div>
+
+    <!-- View Books -->
+    <div>
+        <h2>All Books</h2>
+        <button onclick="fetchBooks()">Load All Books</button>
+        <ul id="book-list"></ul>
+    </div>
+
+    <!-- View Single Book -->
+    <div>
+        <h2>Get Book by Title</h2>
+        <input id="get-title" placeholder="Book Title">
+        <button onclick="fetchBook()">Get Book</button>
+        <p id="single-book-details"></p>
+    </div>
+
+    <script>
+        // Add Book Function
+        async function addBook() {
+    const title = document.getElementById('add-title').value;
+    const author = document.getElementById('add-author').value;
+    const genre = document.getElementById('add-genre').value;
+    const rating = parseFloat(document.getElementById('add-rating').value);
+
+    if (!title || !author || !genre) {
+        alert("All fields are required!");
+        return;
+    }
+
+    const res = await fetch('/books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, author, genre, rating })
+    });
+
+    const data = await res.json();
+    alert(data.message);
+    clearFields();
+}
+
+
+        // Update Book Function
+        async function updateBook() {
+            const title = document.getElementById('update-title').value;
+            const author = document.getElementById('update-author').value;
+            const genre = document.getElementById('update-genre').value;
+            const rating = parseFloat(document.getElementById('update-rating').value);
+
+            const res = await fetch(`/books/${title}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ author, genre, rating })
+            });
+
+            const data = await res.json();
+            alert(data.message);  // Display response message
+        }
+
+        // Delete Book Function
+        async function deleteBook() {
+            const title = document.getElementById('delete-title').value;
+
+            const res = await fetch(`/books/${title}`, {
+                method: 'DELETE'
+            });
+
+            const data = await res.json();
+            alert(data.message);  // Display response message
+        }
+
+        // Fetch All Books Function
+        async function fetchBooks() {
+            const res = await fetch('/books');
+            const books = await res.json();
+            const bookList = document.getElementById('book-list');
+            bookList.innerHTML = '';  // Clear current list
+
+            if (books.length > 0) {
+                books.forEach(book => {
+                    const li = document.createElement('li');
+                    li.innerText = `${book.title} by ${book.author} [${book.genre}] Rating: ${book.rating}`;
+                    bookList.appendChild(li);
+                });
+            } else {
+                bookList.innerHTML = "No books available.";
+            }
+        }
+
+        // Fetch Book by Title Function
+        async function fetchBook() {
+            const title = document.getElementById('get-title').value;
+            const res = await fetch(`/books/${title}`);
+            const data = await res.json();
+            const bookDetails = document.getElementById('single-book-details');
+
+            if (data.error) {
+                bookDetails.innerText = data.error;
+            } else {
+                bookDetails.innerHTML = `
+                    <strong>Title:</strong> ${data.title}<br>
+                    <strong>Author:</strong> ${data.author}<br>
+                    <strong>Genre:</strong> ${data.genre}<br>
+                    <strong>Rating:</strong> ${data.rating}<br>
+                `;
+            }
+        }
+
+        // Clear Input Fields After Actions
+        function clearFields() {
+            document.getElementById('add-title').value = '';
+            document.getElementById('add-author').value = '';
+            document.getElementById('add-genre').value = '';
+            document.getElementById('add-rating').value = '';
+        }
+    </script>
+</body>
+</html>
