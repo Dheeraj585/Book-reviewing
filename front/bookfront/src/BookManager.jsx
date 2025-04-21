@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import GenreBarChart from './components/GenreBarChart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import {
   getBooks,
   addBook,
@@ -7,13 +7,12 @@ import {
   getBookByTitle,
   updateBook,
   addReview,
-  getAvgRating,
   getMostReviewedBook,
   getBooksPerGenre,
   getTopRatedBooks
-} from './services/bookService'; // Adjust .. based on your folder structure
+} from './services/bookService'; // Adjust path based on your project structure
 
-import './BookManager.css'; // Import the CSS file
+import './BookManager.css'; // Make sure the styles are correctly applied
 
 const BookManager = () => {
   const [books, setBooks] = useState([]);
@@ -25,14 +24,14 @@ const BookManager = () => {
   });
   const [searchTitle, setSearchTitle] = useState('');
   const [searchResult, setSearchResult] = useState(null);
-  const [review, setReview] = useState('');
+  const [reviews, setReviews] = useState({}); // Store reviews for each book
   const [analytics, setAnalytics] = useState({
-    avgRating: null,
     mostReviewed: null,
-    booksPerGenre: [],
+    booksPerGenre: [],  // This will hold the genre stats
     topRated: []
   });
 
+  // Fetch all books from the backend
   const fetchBooks = async () => {
     const data = await getBooks();
     setBooks(data);
@@ -47,9 +46,16 @@ const BookManager = () => {
     setNewBook((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleReviewChange = (title, value) => {
+    setReviews((prev) => ({
+      ...prev,
+      [title]: value
+    }));
+  };
+
   const handleAddBook = async () => {
-    if (!newBook.title || !newBook.author || !newBook.genre) {
-      alert('Please fill all fields');
+    if (!newBook.title || !newBook.author || !newBook.genre || newBook.rating < 1 || newBook.rating > 10) {
+      alert('Please fill all fields and ensure the rating is between 1 and 10');
       return;
     }
     await addBook(newBook);
@@ -68,30 +74,43 @@ const BookManager = () => {
   };
 
   const handleUpdate = async () => {
+    if (newBook.rating < 1 || newBook.rating > 10) {
+      alert('Please ensure the rating is between 1 and 10');
+      return;
+    }
     const updated = { ...newBook };
     await updateBook(updated.title, updated);
     fetchBooks();
   };
 
   const handleAddReview = async (title) => {
+    const review = reviews[title];
+    if (!review) {
+      alert('Please write a review');
+      return;
+    }
     await addReview(title, review);
-    setReview('');
+    setReviews((prev) => ({ ...prev, [title]: '' })); // Clear review after adding
     alert('Review added!');
   };
 
   const handleAnalytics = async () => {
-    const [avgRating, mostReviewed, genreStats, topRated] = await Promise.all([
-      getAvgRating(newBook.author || 'Unknown'),
+    const [mostReviewed, genreStats, topRatedBooks] = await Promise.all([
       getMostReviewedBook(),
       getBooksPerGenre(),
-      getTopRatedBooks()
+      getTopRatedBooks()  // Assuming this function returns a list of books with ratings
     ]);
 
+    // Sort the books by rating in descending order
+    const sortedTopRated = topRatedBooks.sort((a, b) => b.rating - a.rating);
+
+    // Get the top 3 rated books
+    const top3Rated = sortedTopRated.slice(0, 3);
+
     setAnalytics({
-      avgRating,
       mostReviewed,
       booksPerGenre: genreStats,
-      topRated
+      topRated: top3Rated
     });
   };
 
@@ -99,6 +118,7 @@ const BookManager = () => {
     <div className="book-manager">
       <h2 className="header">📚 Book Manager</h2>
 
+      {/* Add or Update Book Form */}
       <div className="form-container">
         <h4>Add or Update Book</h4>
         <div className="input-group">
@@ -132,8 +152,8 @@ const BookManager = () => {
             placeholder="Rating"
             value={newBook.rating}
             onChange={handleInputChange}
-            min="0"
-            max="5"
+            min="1"
+            max="10"
             className="input-field"
           />
         </div>
@@ -145,6 +165,7 @@ const BookManager = () => {
 
       <hr />
 
+      {/* Search Book by Title Section */}
       <div className="search-section">
         <h4>🔍 Search Book By Title</h4>
         <div className="input-group">
@@ -169,6 +190,7 @@ const BookManager = () => {
 
       <hr />
 
+      {/* Display All Books */}
       <div className="books-list">
         <h4>All Books</h4>
         {books.length === 0 ? (
@@ -183,8 +205,8 @@ const BookManager = () => {
                   <input
                     type="text"
                     placeholder="Write a review"
-                    value={review}
-                    onChange={(e) => setReview(e.target.value)}
+                    value={reviews[book.title] || ''}
+                    onChange={(e) => handleReviewChange(book.title, e.target.value)}  // Update specific book's review
                     className="input-field"
                   />
                   <button onClick={() => handleAddReview(book.title)} className="btn review-btn">➕ Add Review</button>
@@ -197,15 +219,10 @@ const BookManager = () => {
 
       <hr />
 
+      {/* Analytics Section */}
       <div className="analytics-section">
         <h4>📊 Analytics</h4>
         <button className="btn analytics-btn" onClick={handleAnalytics}>Show Analytics</button>
-
-        {analytics.avgRating && (
-          <div className="analytics-item">
-            <p><strong>Average Rating for {newBook.author}:</strong> {analytics.avgRating.avg_rating}</p>
-          </div>
-        )}
 
         {analytics.mostReviewed && (
           <div className="analytics-item">
@@ -216,11 +233,16 @@ const BookManager = () => {
         {analytics.booksPerGenre.length > 0 && (
           <div className="analytics-item">
             <p><strong>Books per Genre:</strong></p>
-            <ul>
-              {analytics.booksPerGenre.map((g, idx) => (
-                <li key={idx}>{g.genre}: {g.count}</li>
-              ))}
-            </ul>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={analytics.booksPerGenre}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="genre" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="count" fill="#8884d8" barSize={50} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         )}
 

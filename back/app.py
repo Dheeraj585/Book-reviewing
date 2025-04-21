@@ -127,7 +127,8 @@ def most_reviewed():
 @app.route('/analytics/books_per_genre', methods=['GET'])
 def books_per_genre():
     pipeline = [
-        {"$group": {"_id": "$genre", "count": {"$sum": 1}}}
+        {"$group": {"_id": "$genre", "count": {"$sum": 1}}},  # Group by genre and count books
+        {"$project": {"genre": "$_id", "count": 1, "_id": 0}}  # Rename _id to genre and exclude _id
     ]
     result = list(books_collection.aggregate(pipeline))
     return jsonify(result)
@@ -137,6 +138,21 @@ def books_per_genre():
 def top_rated():
     books = list(books_collection.find().sort("rating", -1).limit(3))
     books = [{"title": book['title'], "rating": book['rating']} for book in books]
+    return jsonify(books)
+
+# Search for books by title (partial match, case-insensitive)
+@app.route('/books/search', methods=['GET'])
+def search_books():
+    query = request.args.get('query')
+    if not query:
+        return jsonify({"error": "Query parameter is required"}), 400
+
+    # Perform case-insensitive search using regex
+    books = list(books_collection.find({"title": {"$regex": query, "$options": "i"}}))
+    if not books:
+        return jsonify({"error": "No books found"}), 404
+    
+    books = [convert_id(book) for book in books]
     return jsonify(books)
 
 if __name__ == '__main__':
